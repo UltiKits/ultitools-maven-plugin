@@ -51,7 +51,7 @@ public class UltiToolsDeployMojo extends AbstractMojo {
         String accessKey = strings.get(0);
         getLog().info("成功获取到访问令牌：" + accessKey);
         getLog().info("正在查询远程仓库插件状态..."+identifyString);
-        PluginEntity pluginEntity = getPluginEntity(identifyString);
+        PluginEntity pluginEntity = getPluginEntity(identifyString, version);
         if (pluginEntity == null) {
             getLog().info("未找到插件，正在新建插件模块...");
             if (!isIdStringUsable(identifyString)) {
@@ -77,8 +77,8 @@ public class UltiToolsDeployMojo extends AbstractMojo {
                 !identifyString.contains("&");
     }
 
-    private PluginEntity getPluginEntity(String idString) {
-        HttpRequest get = HttpUtil.createGet("https://api.v2.ultikits.com/plugin/get?identifyString=" + idString);
+    private PluginEntity getPluginEntity(String idString, String version) {
+        HttpRequest get = HttpUtil.createGet("https://api.ultikits.com/plugin/get?identifyString=" + idString+"&version="+version);
         HttpResponse execute = get.execute();
         getLog().info(execute.body());
         if (execute.getStatus() != 200) {
@@ -90,7 +90,7 @@ public class UltiToolsDeployMojo extends AbstractMojo {
     }
 
     private void uploadPlugin(String accessKey, File file) throws MojoExecutionException {
-        HttpRequest post = HttpUtil.createPost("https://api.v2.ultikits.com/developer/plugin/add");
+        HttpRequest post = HttpUtil.createPost("https://api.ultikits.com/developer/plugin/add");
         post.header("Accesskey", accessKey);
         post.form("file", file);
         post.form("shortDescription", shortDescription);
@@ -108,7 +108,7 @@ public class UltiToolsDeployMojo extends AbstractMojo {
     }
 
     private void updatePlugin(String accessKey, File file) throws MojoExecutionException {
-        HttpRequest post = HttpUtil.createPost("https://api.v2.ultikits.com/developer/plugin/update");
+        HttpRequest post = HttpUtil.createPost("https://api.ultikits.com/developer/plugin/update");
         post.header("Accesskey", accessKey);
         post.form("file", file);
         post.form("shortDescription", shortDescription);
