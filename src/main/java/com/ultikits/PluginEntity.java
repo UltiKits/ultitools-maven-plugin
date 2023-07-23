@@ -16,8 +16,6 @@ public class PluginEntity {
     private String description;
     private String shortDescription;
     private String icon;
-    private String downloadLink;
-    private String version;
 
     @Override
     public String toString() {
@@ -40,10 +38,6 @@ public class PluginEntity {
                 + shortDescription + '\"'
                 + ",\"icon\":\""
                 + icon + '\"'
-                + ",\"downloadLink\":\""
-                + downloadLink + '\"'
-                + ",\"version\":\""
-                + version + '\"'
                 + "}";
     }
 }
