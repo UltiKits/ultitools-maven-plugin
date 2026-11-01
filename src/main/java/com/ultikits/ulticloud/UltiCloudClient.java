@@ -5,18 +5,29 @@ import cn.hutool.json.JSONConfig;
 import cn.hutool.json.JSONNull;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.maven.plugin.logging.Log;
 
-import java.io.ByteArrayOutputStream;
+import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -46,6 +57,8 @@ public class UltiCloudClient {
 
     private static final int CONNECT_TIMEOUT_MS = 30000;
     private static final int READ_TIMEOUT_MS = 300000;
+    private static final int LIST_PAGE_SIZE = 100;
+    private static final int MAX_LIST_PAGES = 1000;
     private static final String USER_AGENT = "ultitools-maven-plugin";
 
     /**
@@ -81,6 +94,7 @@ public class UltiCloudClient {
     private final URI api;
     private final DeveloperKey credential;
     private final Log log;
+    private final SSLContext sslContext;
 
     /**
      * Creates a client.
@@ -91,9 +105,23 @@ public class UltiCloudClient {
      * @throws UltiCloudException when the API address is not https (loopback excepted)
      */
     public UltiCloudClient(String apiUrl, DeveloperKey credential, Log log) throws UltiCloudException {
+        this(apiUrl, credential, log, null);
+    }
+
+    /**
+     * Creates a client with a specific TLS context (tests use a self-signed certificate).
+     *
+     * @param apiUrl     the API origin
+     * @param credential the developer key or CLI credential
+     * @param log        the build log
+     * @param sslContext the TLS context, or null for the JVM default trust store
+     * @throws UltiCloudException when the API address is not https (loopback excepted)
+     */
+    UltiCloudClient(String apiUrl, DeveloperKey credential, Log log, SSLContext sslContext) throws UltiCloudException {
         this.api = parseApiUrl(apiUrl);
         this.credential = credential;
         this.log = log;
+        this.sslContext = sslContext;
     }
 
     /**
@@ -270,18 +298,29 @@ public class UltiCloudClient {
     }
 
     private void syncProfile(String moduleRef, ModuleProfile profile) throws UltiCloudException {
-        Response r = send("GET", api + "/v1/developer/modules?q=" + query(moduleRef) + "&pageSize=100", null, true);
-        if (r.status != 200) {
-            throw failure(ApiError.of(r), moduleRef, null);
-        }
         JSONObject current = null;
-        JSONArray items = object(parse(r), "data").getJSONArray("items");
-        if (items != null) {
+        int page = 1;
+        while (current == null) {
+            Response r = send("GET", api + "/v1/developer/modules?q=" + query(moduleRef) + "&page=" + page + "&pageSize="
+                    + LIST_PAGE_SIZE, null, true);
+            if (r.status != 200) {
+                throw failure(ApiError.of(r), moduleRef, null);
+            }
+            JSONObject data = object(parse(r), "data");
+            JSONArray items = data.getJSONArray("items");
+            if (items == null || items.isEmpty()) {
+                break;
+            }
             for (Object item : items) {
                 if (item instanceof JSONObject && moduleRef.equals(string((JSONObject) item, "identifier"))) {
                     current = (JSONObject) item;
                 }
             }
+            Long total = data.getLong("total");
+            if (total == null || (long) page * LIST_PAGE_SIZE >= total || page >= MAX_LIST_PAGES) {
+                break;
+            }
+            page++;
         }
         if (current == null) {
             log.warn("模块列表里找不到 " + moduleRef + "，跳过 name/shortDescription 同步");
@@ -335,8 +374,7 @@ public class UltiCloudClient {
                 }
             }
         }
-        headers.put("Content-Type", "application/java-archive");
-        Response r = request("PUT", uploadUrl, headers, jar);
+        Response r = request("PUT", uploadUrl, headers, jar, ContentType.create("application/java-archive"));
         if (r.status == 200 || r.status == 201) {
             return;
         }
@@ -455,146 +493,69 @@ public class UltiCloudClient {
         if (authorized) {
             headers.put("Authorization", "Bearer " + credential.value());
         }
-        byte[] body = null;
-        if (jsonBody != null) {
-            headers.put("Content-Type", "application/json");
-            body = jsonBody.getBytes(StandardCharsets.UTF_8);
-        }
-        return request(method, url, headers, body);
+        byte[] body = jsonBody == null ? null : jsonBody.getBytes(StandardCharsets.UTF_8);
+        return request(method, url, headers, body, body == null ? null : ContentType.APPLICATION_JSON);
     }
 
-    private Response request(String method, String url, Map<String, String> headers, byte[] body) throws UltiCloudException {
+    /**
+     * Sends one request through Apache HttpClient 5, the single HTTP path on every Java
+     * version (HttpURLConnection cannot send PATCH). Redirects, retries, cookies and
+     * content compression are off, so each request goes exactly where and how it was built.
+     */
+    private Response request(String method, String url, Map<String, String> headers, byte[] body, ContentType type)
+            throws UltiCloudException {
+        ClassicHttpRequest req = ClassicRequestBuilder.create(method).setUri(url).build();
+        for (Map.Entry<String, String> h : headers.entrySet()) {
+            req.setHeader(h.getKey(), h.getValue());
+        }
+        if (body != null) {
+            req.setEntity(new ByteArrayEntity(body, type));
+        }
+        CloseableHttpClient http = httpClient();
         try {
-            if ("PATCH".equals(method) && hasJdkHttpClient()) {
-                return requestWithJdkHttpClient(method, url, headers, body);
+            try {
+                return http.execute(req, new HttpClientResponseHandler<Response>() {
+                    @Override
+                    public Response handleResponse(ClassicHttpResponse response) throws IOException {
+                        HttpEntity entity = response.getEntity();
+                        byte[] bytes = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
+                        Header retry = response.getFirstHeader("Retry-After");
+                        return new Response(response.getCode(), new String(bytes, StandardCharsets.UTF_8),
+                                retry == null ? null : retry.getValue());
+                    }
+                });
+            } finally {
+                http.close();
             }
-            return requestWithUrlConnection(method, url, headers, body);
         } catch (IOException e) {
             throw new UltiCloudException("无法连接 UltiCloud（" + api + "）：" + e.getClass().getSimpleName()
                     + (e.getMessage() == null ? "" : " " + e.getMessage().replace(url, origin(URI.create(url)))));
         }
     }
 
-    private Response requestWithUrlConnection(String method, String url, Map<String, String> headers, byte[] body)
-            throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setInstanceFollowRedirects(false);
-        conn.setUseCaches(false);
-        conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
-        conn.setReadTimeout(READ_TIMEOUT_MS);
-        setMethod(conn, method);
-        conn.setRequestProperty("User-Agent", USER_AGENT);
-        for (Map.Entry<String, String> h : headers.entrySet()) {
-            conn.setRequestProperty(h.getKey(), h.getValue());
+    private CloseableHttpClient httpClient() {
+        PoolingHttpClientConnectionManagerBuilder cm = PoolingHttpClientConnectionManagerBuilder.create()
+                .useSystemProperties()
+                .setDefaultConnectionConfig(ConnectionConfig.custom()
+                        .setConnectTimeout(Timeout.ofMilliseconds(CONNECT_TIMEOUT_MS))
+                        .setSocketTimeout(Timeout.ofMilliseconds(READ_TIMEOUT_MS))
+                        .build());
+        if (sslContext != null) {
+            cm.setTlsSocketStrategy(new DefaultClientTlsStrategy(sslContext));
         }
-        try {
-            if (body != null) {
-                conn.setDoOutput(true);
-                OutputStream out = conn.getOutputStream();
-                try {
-                    out.write(body);
-                } finally {
-                    out.close();
-                }
-            }
-            int status = conn.getResponseCode();
-            InputStream in = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
-            return new Response(status, readAll(in), conn.getHeaderField("Retry-After"));
-        } finally {
-            conn.disconnect();
-        }
-    }
-
-    /**
-     * HttpURLConnection refuses PATCH. On Java 8 the method field is set reflectively;
-     * Java 16+ blocks that, so PATCH goes through {@code java.net.http} instead (see
-     * {@link #requestWithJdkHttpClient}).
-     */
-    private static void setMethod(HttpURLConnection conn, String method) throws IOException {
-        if (!"PATCH".equals(method)) {
-            conn.setRequestMethod(method);
-            return;
-        }
-        try {
-            Field field = HttpURLConnection.class.getDeclaredField("method");
-            field.setAccessible(true);
-            field.set(conn, method);
-        } catch (Exception e) {
-            throw new IOException("this Java runtime cannot send PATCH", e);
-        }
-    }
-
-    private static boolean hasJdkHttpClient() {
-        try {
-            Class.forName("java.net.http.HttpClient");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    /** Sends through {@code java.net.http} (Java 11+) by reflection, so the code still compiles for Java 8. */
-    private Response requestWithJdkHttpClient(String method, String url, Map<String, String> headers, byte[] body)
-            throws IOException {
-        try {
-            Class<?> clientClass = Class.forName("java.net.http.HttpClient");
-            Class<?> requestClass = Class.forName("java.net.http.HttpRequest");
-            Class<?> builderClass = Class.forName("java.net.http.HttpRequest$Builder");
-            Class<?> publisherClass = Class.forName("java.net.http.HttpRequest$BodyPublisher");
-            Class<?> publishersClass = Class.forName("java.net.http.HttpRequest$BodyPublishers");
-            Class<?> handlerClass = Class.forName("java.net.http.HttpResponse$BodyHandler");
-            Class<?> handlersClass = Class.forName("java.net.http.HttpResponse$BodyHandlers");
-            Class<?> responseClass = Class.forName("java.net.http.HttpResponse");
-            Class<?> headersClass = Class.forName("java.net.http.HttpHeaders");
-
-            Object client = clientClass.getMethod("newHttpClient").invoke(null);
-            Object builder = requestClass.getMethod("newBuilder", URI.class).invoke(null, URI.create(url));
-            Object publisher = body == null
-                    ? publishersClass.getMethod("noBody").invoke(null)
-                    : publishersClass.getMethod("ofByteArray", byte[].class).invoke(null, (Object) body);
-            builder = builderClass.getMethod("method", String.class, publisherClass).invoke(builder, method, publisher);
-            builder = builderClass.getMethod("timeout", java.time.Duration.class)
-                    .invoke(builder, java.time.Duration.ofMillis(READ_TIMEOUT_MS));
-            Method header = builderClass.getMethod("header", String.class, String.class);
-            builder = header.invoke(builder, "User-Agent", USER_AGENT);
-            for (Map.Entry<String, String> h : headers.entrySet()) {
-                builder = header.invoke(builder, h.getKey(), h.getValue());
-            }
-            Object request = builderClass.getMethod("build").invoke(builder);
-            Object handler = handlersClass.getMethod("ofByteArray").invoke(null);
-            Object response = clientClass.getMethod("send", requestClass, handlerClass).invoke(client, request, handler);
-            int status = (Integer) responseClass.getMethod("statusCode").invoke(response);
-            byte[] bytes = (byte[]) responseClass.getMethod("body").invoke(response);
-            Object responseHeaders = responseClass.getMethod("headers").invoke(response);
-            Object retryAfter = headersClass.getMethod("firstValue", String.class).invoke(responseHeaders, "Retry-After");
-            String retry = (String) ((java.util.Optional<?>) retryAfter).orElse(null);
-            return new Response(status, new String(bytes, StandardCharsets.UTF_8), retry);
-        } catch (java.lang.reflect.InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof IOException) {
-                throw (IOException) cause;
-            }
-            throw new IOException(String.valueOf(cause), cause);
-        } catch (ReflectiveOperationException e) {
-            throw new IOException("java.net.http is not usable", e);
-        }
-    }
-
-    private static String readAll(InputStream in) throws IOException {
-        if (in == null) {
-            return "";
-        }
-        try {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) {
-                out.write(buf, 0, n);
-            }
-            return new String(out.toByteArray(), StandardCharsets.UTF_8);
-        } finally {
-            in.close();
-        }
+        return HttpClients.custom()
+                .setConnectionManager(cm.build())
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setResponseTimeout(Timeout.ofMilliseconds(READ_TIMEOUT_MS))
+                        .build())
+                .setUserAgent(USER_AGENT)
+                .useSystemProperties()
+                .disableRedirectHandling()
+                .disableAutomaticRetries()
+                .disableCookieManagement()
+                .disableContentCompression()
+                .disableAuthCaching()
+                .build();
     }
 
     // ---------------------------------------------------------------- helpers

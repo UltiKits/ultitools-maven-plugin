@@ -69,8 +69,25 @@ public final class StubServer implements AutoCloseable {
     private final List<Recorded> requests = Collections.synchronizedList(new ArrayList<Recorded>());
     private final List<String> unexpected = Collections.synchronizedList(new ArrayList<String>());
 
+    private final boolean tls;
+
     public StubServer() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        this(false);
+    }
+
+    /**
+     * @param tls serve HTTPS with the self-signed test certificate in {@code tls/stub-test-only.p12}
+     */
+    public StubServer(boolean tls) throws IOException {
+        this.tls = tls;
+        if (tls) {
+            com.sun.net.httpserver.HttpsServer https =
+                    com.sun.net.httpserver.HttpsServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            https.setHttpsConfigurator(new com.sun.net.httpserver.HttpsConfigurator(testTlsContext()));
+            server = https;
+        } else {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        }
         server.createContext("/", new HttpHandler() {
             @Override
             public void handle(HttpExchange ex) throws IOException {
@@ -82,7 +99,7 @@ public final class StubServer implements AutoCloseable {
 
     /** @return the stub origin, for example {@code http://127.0.0.1:41234} */
     public String baseUrl() {
-        return "http://127.0.0.1:" + server.getAddress().getPort();
+        return (tls ? "https" : "http") + "://127.0.0.1:" + server.getAddress().getPort();
     }
 
     /** Queues a reply for {@code METHOD /path} (query ignored). */
@@ -144,6 +161,34 @@ public final class StubServer implements AutoCloseable {
     }
 
     // ------------------------------------------------------------ fixtures
+
+    /**
+     * TLS context holding the self-signed test certificate, used both as the server key
+     * and as the client's only trust anchor. Test-only material; never used outside tests.
+     */
+    public static javax.net.ssl.SSLContext testTlsContext() {
+        try {
+            char[] pass = "changeit".toCharArray();
+            java.security.KeyStore ks = java.security.KeyStore.getInstance("PKCS12");
+            InputStream in = StubServer.class.getResourceAsStream("/tls/stub-test-only.p12");
+            try {
+                ks.load(in, pass);
+            } finally {
+                in.close();
+            }
+            javax.net.ssl.KeyManagerFactory kmf =
+                    javax.net.ssl.KeyManagerFactory.getInstance(javax.net.ssl.KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(ks, pass);
+            javax.net.ssl.TrustManagerFactory tmf =
+                    javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(ks);
+            javax.net.ssl.SSLContext ctx = javax.net.ssl.SSLContext.getInstance("TLS");
+            ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+            return ctx;
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     /** Root of the copied contract export in the test resources. */
     public static File contractRoot() {

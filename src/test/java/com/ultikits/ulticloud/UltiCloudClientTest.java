@@ -182,6 +182,63 @@ public class UltiCloudClientTest extends TestCase {
         assertFalse(e.getMessage().contains("bad gateway"));
     }
 
+    // ------------------------------------------------------------ HTTPS and paging
+
+    /**
+     * Every method, PATCH included, must reach an HTTPS server unchanged. On Java 8 the
+     * old reflective PATCH override only changed the outer HttpsURLConnection, so the
+     * request left as POST; this test runs on the JDK 8 CI.
+     */
+    public void testProfileSyncOverHttpsSendsARealPatch() throws Exception {
+        StubServer https = new StubServer(true);
+        try {
+            https.on("POST", VERSIONS, 200, https.fixtureHere("versionsCreate/response/valid/pending.json"));
+            https.on("GET", "/v1/developer/modules", 200, StubServer.fixture("modulesList/response/valid/page.json"));
+            https.on("PATCH", "/v1/developer/modules/" + MODULE, 200, StubServer.fixture("modulesUpdate/response/valid/updated.json"));
+            https.on("PUT", UPLOAD, 200, https.fixtureHere("uploadPut/response/valid/published.json"));
+            new UltiCloudClient(https.baseUrl(), DeveloperKey.parse(KEY), log, StubServer.testTlsContext())
+                    .publish(MODULE, "1.2.3", null, jar, new UltiCloudClient.ModuleProfile("Renamed Module", null));
+
+            assertEquals(https.unexpected().toString(), 0, https.unexpected().size());
+            List<StubServer.Recorded> reqs = https.requests();
+            assertEquals(4, reqs.size());
+            assertEquals("PATCH", reqs.get(2).method);
+            assertEquals("{\"name\":\"Renamed Module\"}", reqs.get(2).bodyText());
+            assertNull(reqs.get(3).header("Authorization"));
+            assertTrue(Arrays.equals(jar, reqs.get(3).body));
+        } finally {
+            https.close();
+        }
+    }
+
+    private static String listPage(int page, int total, boolean includeTarget) {
+        StringBuilder items = new StringBuilder();
+        int count = includeTarget ? 1 : 100;
+        for (int i = 0; i < count; i++) {
+            String id = includeTarget ? MODULE : MODULE + "-other-" + i;
+            items.append(i == 0 ? "" : ",").append("{\"id\":\"M").append(i).append("\",\"name\":\"Sample Module\",")
+                    .append("\"identifier\":\"").append(id).append("\",\"shortDescription\":\"\",\"iconUrl\":null,")
+                    .append("\"category\":null,\"downloads\":0,\"latestVersion\":null,\"updatedAt\":\"2026-11-01T12:00:00.000Z\"}");
+        }
+        return "{\"data\":{\"items\":[" + items + "],\"total\":" + total + ",\"page\":" + page + ",\"pageSize\":100}}";
+    }
+
+    public void testProfileSyncFollowsPagesUntilTheExactIdentifier() throws Exception {
+        stub.on("POST", VERSIONS, 200, stub.fixtureHere("versionsCreate/response/valid/pending.json"));
+        stub.on("GET", "/v1/developer/modules", 200, listPage(1, 101, false));
+        stub.on("GET", "/v1/developer/modules", 200, listPage(2, 101, true));
+        stub.on("PATCH", "/v1/developer/modules/" + MODULE, 200, StubServer.fixture("modulesUpdate/response/valid/updated.json"));
+        stub.on("PUT", UPLOAD, 200, stub.fixtureHere("uploadPut/response/valid/published.json"));
+        client().publish(MODULE, "1.2.3", null, jar, new UltiCloudClient.ModuleProfile("Renamed Module", null));
+
+        assertEquals(stub.unexpected().toString(), 0, stub.unexpected().size());
+        List<StubServer.Recorded> reqs = stub.requests();
+        assertEquals(5, reqs.size());
+        assertTrue(reqs.get(1).query, reqs.get(1).query.contains("page=1"));
+        assertTrue(reqs.get(2).query, reqs.get(2).query.contains("page=2"));
+        assertEquals("PATCH", reqs.get(3).method);
+    }
+
     // ------------------------------------------------------------ pre-request checks
 
     public void testOversizedJarFailsBeforeAnyRequest() throws Exception {

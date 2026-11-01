@@ -72,7 +72,9 @@ Every failure ends the build with a specific message (invalid or revoked key, no
 - name: Publish to UltiCloud
   env:
     ULTIKITS_TOKEN: ${{ secrets.ULTIKITS_TOKEN }}
-  run: mvn -B package ultitools:deploy -Dultitools.changelog="${{ github.event.release.body }}"
+    # Passed through the environment, never interpolated into the shell script.
+    CHANGELOG: ${{ github.event.release.body }}
+  run: mvn -B package ultitools:deploy -Dultitools.changelog="$CHANGELOG"
 ```
 
 Store an **upload**-scoped developer key as the repository secret `ULTIKITS_TOKEN`, and create the module in the developer center first.
@@ -91,4 +93,4 @@ Store an **upload**-scoped developer key as the repository secret `ULTIKITS_TOKE
 mvn -B -ntp -Dgpg.skip=true verify
 ```
 
-The tests replay the UltiCloud developer-client contract fixtures copied into `src/test/resources/ulticloud/developer-client/1.0.0/` against a local stub server; no network access is needed. Refresh the copy with `scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.0.0`, which verifies every file against `MANIFEST.json`.
+HTTP goes through Apache HttpClient 5 (`HttpURLConnection` cannot send PATCH). The tests replay the UltiCloud developer-client contract fixtures copied into `src/test/resources/ulticloud/developer-client/1.0.0/` against a local stub server; no network access is needed. Refresh the copy with `scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.0.0`, which verifies every file against `MANIFEST.json`.
