@@ -1,11 +1,8 @@
 package com.ultikits;
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
+import com.ultikits.ulticloud.DeveloperKey;
+import com.ultikits.ulticloud.UltiCloudClient;
+import com.ultikits.ulticloud.UltiCloudException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -13,8 +10,17 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
-import java.util.List;
+import java.io.IOException;
+import java.nio.file.Files;
 
+/**
+ * Publishes the built module JAR to UltiCloud with a developer key.
+ *
+ * <p>The key comes from the {@code ULTIKITS_TOKEN} environment variable, or else from
+ * the first line of {@code accessKeyFile}. The version is declared with the SHA-256 and
+ * size of the JAR, then the same bytes are uploaded to the returned ticket URL; a
+ * successful upload publishes the version. Build logs only ever show the masked key.</p>
+ */
 @Mojo(name = "deploy", defaultPhase = LifecyclePhase.DEPLOY)
 public class UltiToolsDeployMojo extends AbstractMojo {
     @Parameter(name = "baseDir", defaultValue = "${basedir}")
@@ -25,103 +31,97 @@ public class UltiToolsDeployMojo extends AbstractMojo {
     private File outputDirectory;
     @Parameter(name = "fileName", defaultValue = "${project.build.finalName}" + ".jar")
     private String fileName;
-    @Parameter(name = "accessKeyFile", required = true)
+    /** File whose first line is the developer key; used when ULTIKITS_TOKEN is not set. */
+    @Parameter(name = "accessKeyFile")
     private String accessKeyFile;
-    @Parameter(name = "name", required = true)
+    /** Module name; creates a missing module and is synchronised to an existing one. */
+    @Parameter(name = "name")
     private String name;
+    /** Module identifier on UltiCloud. */
     @Parameter(name = "identifyString", required = true)
     private String identifyString;
-    @Parameter(name = "shortDescription", defaultValue = "")
+    /** Module short description; synchronised like {@code name}. */
+    @Parameter(name = "shortDescription")
     private String shortDescription;
+    /** UltiCloud API origin; https only, loopback http allowed for tests. */
+    @Parameter(name = "apiUrl", property = "ultitools.apiUrl", defaultValue = "https://api.ultikits.com")
+    private String apiUrl;
+    /** Changelog for this version, at most 5000 characters. */
+    @Parameter(name = "changelog", property = "ultitools.changelog")
+    private String changelog;
+    /** Whether a -SNAPSHOT version may be published; published versions cannot be deleted. */
+    @Parameter(name = "allowSnapshot", property = "ultitools.allowSnapshot", defaultValue = "false")
+    private boolean allowSnapshot;
 
+    /** Environment lookup; replaced in tests so that the real environment is never changed. */
+    private DeveloperKey.Env env = new DeveloperKey.Env() {
+        @Override
+        public String get(String variable) {
+            return System.getenv(variable);
+        }
+    };
+
+    /**
+     * Validates the configuration, then publishes. Every check runs before the first
+     * network request.
+     *
+     * @throws MojoExecutionException when the configuration is invalid or publishing fails
+     */
     public void execute() throws MojoExecutionException {
-        File f = outputDirectory;
-
-        if (!f.exists()) {
-            f.mkdirs();
+        if (identifyString == null || identifyString.trim().isEmpty()) {
+            throw new MojoExecutionException("identifyString 必填：UltiCloud 上的模块标识符");
+        }
+        String moduleRef = identifyString.trim();
+        if (version == null || version.trim().isEmpty()) {
+            throw new MojoExecutionException("version 为空");
+        }
+        if (version.endsWith("-SNAPSHOT") && !allowSnapshot) {
+            throw new MojoExecutionException("不发布快照版本；需要时设 -Dultitools.allowSnapshot=true");
+        }
+        if (changelog != null && changelog.length() > UltiCloudClient.MAX_CHANGELOG_CHARS) {
+            throw new MojoExecutionException("changelog 超过 5000 个字符");
         }
 
-        File build = new File(f, fileName);
-        getLog().info("正在获取访问令牌...");
-        File accessFile = new File(baseDir + "/" + accessKeyFile);
-        List<String> strings = FileUtil.readUtf8Lines(accessFile);
-        if (strings.size() == 0) {
-            throw new MojoExecutionException("Empty access key file!");
+        DeveloperKey key;
+        try {
+            key = DeveloperKey.resolve(env, accessKeyFile == null || accessKeyFile.trim().isEmpty()
+                    ? null : resolve(accessKeyFile.trim()));
+        } catch (IllegalArgumentException e) {
+            throw new MojoExecutionException(e.getMessage());
         }
-        String accessKey = strings.get(0);
-        getLog().info("成功获取到访问令牌：" + accessKey);
-        getLog().info("正在查询远程仓库插件状态..."+identifyString);
-        PluginEntity pluginEntity = getPluginEntity(identifyString, version);
-        if (pluginEntity == null) {
-            getLog().info("未找到插件，正在新建插件模块...");
-            if (!isIdStringUsable(identifyString)) {
-                throw new MojoExecutionException(String.format("Identify string %s is not usable! Please consider another one!", identifyString));
-            }
-            getLog().info("正在上传插件...");
-            uploadPlugin(accessKey, build);
-            return;
+
+        UltiCloudClient client;
+        try {
+            client = new UltiCloudClient(apiUrl, key, getLog());
+        } catch (UltiCloudException e) {
+            throw new MojoExecutionException(e.getMessage());
         }
-        getLog().info("找到插件，正在进行更新...");
-        updatePlugin(accessKey, build);
+
+        File jarFile = new File(outputDirectory, fileName);
+        if (!jarFile.isFile()) {
+            throw new MojoExecutionException("找不到构建产物 " + jarFile.getPath() + "：先运行 mvn package");
+        }
+        if (jarFile.length() > UltiCloudClient.MAX_JAR_BYTES) {
+            throw new MojoExecutionException("JAR 有 " + jarFile.length() + " 字节，超过 UltiCloud 的 50 MiB（52428800 字节）上限");
+        }
+        byte[] jar;
+        try {
+            // Read once: the same bytes are hashed, measured and uploaded.
+            jar = Files.readAllBytes(jarFile.toPath());
+        } catch (IOException e) {
+            throw new MojoExecutionException("无法读取 " + jarFile.getPath(), e);
+        }
+
+        try {
+            client.publish(moduleRef, version.trim(), changelog,
+                    jar, new UltiCloudClient.ModuleProfile(name, shortDescription));
+        } catch (UltiCloudException e) {
+            throw new MojoExecutionException(e.getMessage());
+        }
     }
 
-    private boolean isIdStringUsable(String identifyString) {
-        return !identifyString.contains("+") &&
-                !identifyString.contains("/") &&
-                !identifyString.contains(" ") &&
-                !identifyString.contains(";") &&
-                !identifyString.contains("?") &&
-                !identifyString.contains(":") &&
-                !identifyString.contains("@") &&
-                !identifyString.contains("=") &&
-                !identifyString.contains("&");
-    }
-
-    private PluginEntity getPluginEntity(String idString, String version) {
-        HttpRequest get = HttpUtil.createGet("https://api.ultikits.com/plugin/get?identifyString=" + idString+"&version="+version);
-        HttpResponse execute = get.execute();
-        getLog().info(execute.body());
-        if (execute.getStatus() != 200) {
-            return null;
-        }
-        JSONObject jsonObject = JSONUtil.parseObj(execute.body());
-        execute.close();
-        return jsonObject.toBean(PluginEntity.class);
-    }
-
-    private void uploadPlugin(String accessKey, File file) throws MojoExecutionException {
-        HttpRequest post = HttpUtil.createPost("https://api.ultikits.com/developer/plugin/add");
-        post.header("Accesskey", accessKey);
-        post.form("file", file);
-        post.form("shortDescription", shortDescription);
-        post.form("identifyString", identifyString);
-        post.form("name", name);
-        post.form("version", version);
-        HttpResponse execute = post.execute();
-        if (execute.isOk()) {
-            getLog().info("上传成功！");
-        } else {
-            getLog().error("上传失败！");
-            throw new MojoExecutionException(execute.body());
-        }
-        execute.close();
-    }
-
-    private void updatePlugin(String accessKey, File file) throws MojoExecutionException {
-        HttpRequest post = HttpUtil.createPost("https://api.ultikits.com/developer/plugin/update");
-        post.header("Accesskey", accessKey);
-        post.form("file", file);
-        post.form("shortDescription", shortDescription);
-        post.form("identifyString", identifyString);
-        post.form("name", name);
-        post.form("version", version);
-        HttpResponse execute = post.execute();
-        if (execute.isOk()) {
-            getLog().info("上传成功！");
-        } else {
-            getLog().error("上传失败！");
-            throw new MojoExecutionException(execute.body());
-        }
-        execute.close();
+    private File resolve(String path) {
+        File f = new File(path);
+        return f.isAbsolute() || baseDir == null ? f : new File(baseDir, path);
     }
 }
