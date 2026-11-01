@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "deviceCode is 43..128 base64url characters",
+  "body": {
+    "deviceCode": "short"
+  }
+}

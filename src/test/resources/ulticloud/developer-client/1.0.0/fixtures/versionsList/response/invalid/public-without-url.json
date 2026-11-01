@@ -1,0 +1,25 @@
+{
+  "expect": "invalid",
+  "why": "a public download carries its URL",
+  "body": {
+    "data": {
+      "items": [
+        {
+          "version": "1.2.3",
+          "isLatest": true,
+          "publishedAt": "2026-11-01T12:00:00.000Z",
+          "sizeBytes": 48213,
+          "sha256": "4f6c1e9a0b7d3c2e8f5a6b1c9d0e7f3a2b4c5d6e7f8091a2b3c4d5e6f7089a1b",
+          "changelog": null,
+          "apiLevel": 631,
+          "download": {
+            "kind": "public"
+          }
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "pageSize": 20
+    }
+  }
+}

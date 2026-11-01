@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.0.0/modulesCreate.request.schema.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "shortDescription": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "categoryId": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compatibleApiVersions": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 128
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tags": {
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 24
+      }
+    }
+  },
+  "required": [
+    "name",
+    "identifier",
+    "shortDescription",
+    "description",
+    "categoryId",
+    "compatibleApiVersions",
+    "tags"
+  ],
+  "additionalProperties": false
+}

@@ -9,6 +9,10 @@
     <description>This project help you develop and test your UltiTools plugins easily!</description>
 
     <url>https://github.com/UltiKits/ultitools-maven-plugin</url>
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
     <licenses>
         <license>
             <name>MIT License</name>

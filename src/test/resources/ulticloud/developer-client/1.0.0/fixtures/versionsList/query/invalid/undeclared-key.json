@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "undeclared keys are rejected",
+  "body": {
+    "sort": "name"
+  }
+}

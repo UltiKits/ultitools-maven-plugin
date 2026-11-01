@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "version is required",
+  "body": {
+    "moduleRef": "uc-p12-sample"
+  }
+}

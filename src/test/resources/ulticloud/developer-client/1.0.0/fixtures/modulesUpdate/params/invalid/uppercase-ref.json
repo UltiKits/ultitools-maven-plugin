@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "moduleRef is a ULID or a lower-case identifier",
+  "body": {
+    "moduleRef": "Not-Valid"
+  }
+}

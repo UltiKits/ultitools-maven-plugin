@@ -1,0 +1,8 @@
+{
+  "expect": "invalid",
+  "why": "suggestedName must be 1..64 characters",
+  "body": {
+    "clientKind": "cli",
+    "suggestedName": ""
+  }
+}

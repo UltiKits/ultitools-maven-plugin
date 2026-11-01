@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "a ticket is the prefix plus 43 characters",
+  "body": {
+    "ticketId": "ucu_short"
+  }
+}

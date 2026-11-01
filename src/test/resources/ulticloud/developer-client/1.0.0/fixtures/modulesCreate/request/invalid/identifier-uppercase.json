@@ -1,0 +1,13 @@
+{
+  "expect": "invalid",
+  "why": "identifier is lower case",
+  "body": {
+    "name": "Sample Module",
+    "identifier": "UC-Sample",
+    "shortDescription": "A synthetic sample module.",
+    "description": null,
+    "categoryId": null,
+    "compatibleApiVersions": null,
+    "tags": []
+  }
+}

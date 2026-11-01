@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "page starts at 1",
+  "body": {
+    "page": 0
+  }
+}

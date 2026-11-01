@@ -1,0 +1,15 @@
+{
+  "expect": "invalid",
+  "why": "scope is upload or manage",
+  "body": {
+    "data": {
+      "id": 42,
+      "username": "alice",
+      "developerName": "Alice Studio",
+      "credential": {
+        "kind": "developer",
+        "scope": "admin"
+      }
+    }
+  }
+}

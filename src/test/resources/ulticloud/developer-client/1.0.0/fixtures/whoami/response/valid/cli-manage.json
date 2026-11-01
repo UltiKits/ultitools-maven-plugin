@@ -1,0 +1,11 @@
+{
+  "data": {
+    "id": 42,
+    "username": "alice",
+    "developerName": "Alice Studio",
+    "credential": {
+      "kind": "cli",
+      "scope": "manage"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "data": {
+    "uploadUrl": "https://api.ultikits.com/v1/uploads/ucu_SyntheticUploadTicket0000000000000000000000",
+    "method": "PUT",
+    "headers": {
+      "Content-Type": "application/java-archive"
+    },
+    "expiresAt": "2026-12-01T12:00:00.000Z",
+    "maxBytes": 52428800
+  }
+}

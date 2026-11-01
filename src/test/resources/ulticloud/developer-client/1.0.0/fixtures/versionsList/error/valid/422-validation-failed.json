@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "validation_failed",
+    "message": "The query is not valid.",
+    "requestId": "01JB2Z8Y3K4M5N6P7Q8R9S0REQ",
+    "details": {
+      "fields": {
+        "apiLevel": "Too small."
+      }
+    }
+  }
+}
