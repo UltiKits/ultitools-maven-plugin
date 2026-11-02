@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "the identifier cannot be changed",
+  "body": {
+    "identifier": "other-id"
+  }
+}

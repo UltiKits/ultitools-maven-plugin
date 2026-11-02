@@ -1,0 +1,14 @@
+{
+  "expect": "invalid",
+  "why": "details.role must be owner or developer",
+  "body": {
+    "error": {
+      "code": "role_required",
+      "message": "x",
+      "requestId": "01JB2Z8Y3K4M5N6P7Q8R9S0REQ",
+      "details": {
+        "role": "admin"
+      }
+    }
+  }
+}

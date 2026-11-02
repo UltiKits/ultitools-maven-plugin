@@ -1,0 +1,23 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "01JB2Z8Y3K4M5N6P7Q8R9S0MDV",
+        "name": "Sample Module",
+        "identifier": "uc-p12-sample",
+        "shortDescription": "A synthetic sample module.",
+        "iconUrl": "https://api.ultikits.com/v1/catalogue/modules/uc-p12-sample/icon",
+        "category": {
+          "id": 3,
+          "name": "Gameplay"
+        },
+        "downloads": 12,
+        "latestVersion": "1.2.3",
+        "updatedAt": "2026-11-01T12:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 20
+  }
+}

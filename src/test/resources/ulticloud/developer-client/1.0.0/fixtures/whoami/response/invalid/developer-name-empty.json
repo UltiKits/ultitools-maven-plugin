@@ -1,0 +1,11 @@
+{
+  "expect": "invalid",
+  "why": "developerName has 1..128 characters",
+  "body": {
+    "data": {
+      "id": 42,
+      "username": "alice",
+      "developerName": ""
+    }
+  }
+}

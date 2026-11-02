@@ -1,0 +1,9 @@
+{
+  "name": "Sample Module",
+  "identifier": "uc-p12-sample",
+  "shortDescription": "A synthetic sample module.",
+  "description": null,
+  "categoryId": null,
+  "compatibleApiVersions": null,
+  "tags": []
+}

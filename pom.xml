@@ -9,6 +9,10 @@
     <description>This project help you develop and test your UltiTools plugins easily!</description>
 
     <url>https://github.com/UltiKits/ultitools-maven-plugin</url>
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
     <licenses>
         <license>
             <name>MIT License</name>
@@ -89,6 +93,11 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-json</artifactId>
             <version>5.8.12</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>5.5.1</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

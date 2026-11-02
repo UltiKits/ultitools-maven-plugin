@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "icons are https only",
+  "body": {
+    "iconUrl": "http://example.com/icon.png"
+  }
+}

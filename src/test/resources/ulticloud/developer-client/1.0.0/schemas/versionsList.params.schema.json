@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.0.0/versionsList.params.schema.json",
+  "type": "object",
+  "properties": {
+    "moduleRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        }
+      ]
+    }
+  },
+  "required": [
+    "moduleRef"
+  ],
+  "additionalProperties": false
+}

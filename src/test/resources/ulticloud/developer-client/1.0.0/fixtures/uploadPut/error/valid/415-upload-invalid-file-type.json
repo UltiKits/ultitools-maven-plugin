@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "upload_invalid_file_type",
+    "message": "Only application/java-archive is accepted.",
+    "requestId": "01JB2Z8Y3K4M5N6P7Q8R9S0REQ"
+  }
+}

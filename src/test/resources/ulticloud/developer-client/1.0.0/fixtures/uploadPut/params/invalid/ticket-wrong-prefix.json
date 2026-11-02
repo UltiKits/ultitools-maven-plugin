@@ -1,0 +1,7 @@
+{
+  "expect": "invalid",
+  "why": "a ticket starts with ucu_",
+  "body": {
+    "ticketId": "ucd_SyntheticDeveloperKey0000000000000000000000"
+  }
+}

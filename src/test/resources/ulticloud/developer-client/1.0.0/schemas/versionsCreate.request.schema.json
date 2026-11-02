@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.0.0/versionsCreate.request.schema.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "changelog": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 5000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 52428800
+    }
+  },
+  "required": [
+    "version",
+    "changelog",
+    "sha256",
+    "sizeBytes"
+  ],
+  "additionalProperties": false
+}

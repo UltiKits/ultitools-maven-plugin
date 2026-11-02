@@ -1,0 +1,12 @@
+{
+  "expect": "invalid",
+  "why": "name is required",
+  "body": {
+    "identifier": "uc-p12-sample",
+    "shortDescription": "A synthetic sample module.",
+    "description": null,
+    "categoryId": null,
+    "compatibleApiVersions": null,
+    "tags": []
+  }
+}

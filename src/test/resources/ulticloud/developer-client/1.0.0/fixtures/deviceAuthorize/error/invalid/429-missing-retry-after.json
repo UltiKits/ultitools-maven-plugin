@@ -1,0 +1,11 @@
+{
+  "expect": "invalid",
+  "why": "rate_limited carries details.retryAfterSeconds",
+  "body": {
+    "error": {
+      "code": "rate_limited",
+      "message": "Too many requests.",
+      "requestId": "01JB2Z8Y3K4M5N6P7Q8R9S0REQ"
+    }
+  }
+}

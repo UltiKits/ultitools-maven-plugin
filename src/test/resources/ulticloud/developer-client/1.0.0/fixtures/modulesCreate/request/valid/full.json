@@ -1,0 +1,12 @@
+{
+  "name": "Sample Module",
+  "identifier": "uc-p12-sample",
+  "shortDescription": "A synthetic sample module.",
+  "description": "Longer text.",
+  "categoryId": 3,
+  "compatibleApiVersions": "630-631",
+  "tags": [
+    "kits",
+    "economy"
+  ]
+}

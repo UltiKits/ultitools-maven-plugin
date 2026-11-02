@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.0.0/uploadPut.params.schema.json",
+  "type": "object",
+  "properties": {
+    "ticketId": {
+      "type": "string",
+      "pattern": "^ucu_[A-Za-z0-9_-]{43}$"
+    }
+  },
+  "required": [
+    "ticketId"
+  ],
+  "additionalProperties": false
+}

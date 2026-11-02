@@ -1,0 +1,9 @@
+{
+  "expect": "invalid",
+  "why": "ok is the literal true",
+  "body": {
+    "data": {
+      "ok": false
+    }
+  }
+}

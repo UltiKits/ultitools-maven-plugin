@@ -1,0 +1,10 @@
+{
+  "expect": "invalid",
+  "why": "sha256 is lower-case hex",
+  "body": {
+    "version": "1.2.3",
+    "changelog": null,
+    "sha256": "4F6C1E9A0B7D3C2E8F5A6B1C9D0E7F3A2B4C5D6E7F8091A2B3C4D5E6F7089A1B",
+    "sizeBytes": 5
+  }
+}
