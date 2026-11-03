@@ -1,0 +1,10 @@
+{
+  "error": {
+    "code": "rate_limited",
+    "message": "请求过于频繁，稍后再试",
+    "requestId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "details": {
+      "retryAfterSeconds": 86400
+    }
+  }
+}

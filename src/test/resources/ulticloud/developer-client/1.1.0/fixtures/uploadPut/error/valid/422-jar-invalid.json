@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "upload_jar_invalid",
+    "message": "上传文件不是有效的 ZIP/JAR",
+    "requestId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+  }
+}

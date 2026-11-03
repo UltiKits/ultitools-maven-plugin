@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.1.0/versionsCreate.response.200.schema.json",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/DevModuleVersion"
+        },
+        "upload": {
+          "$ref": "#/$defs/UploadTicket"
+        }
+      },
+      "required": [
+        "version",
+        "upload"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "data"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "DevModuleVersion": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+            },
+            "sizeBytes": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "changelog": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "createdAt": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+            },
+            "status": {
+              "type": "string",
+              "const": "pending_upload"
+            },
+            "downloadUrl": {
+              "type": "null"
+            },
+            "isLatest": {
+              "type": "boolean",
+              "const": false
+            },
+            "withdrawnAt": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "version",
+            "sizeBytes",
+            "sha256",
+            "changelog",
+            "createdAt",
+            "status",
+            "downloadUrl",
+            "isLatest",
+            "withdrawnAt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+            },
+            "sizeBytes": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "changelog": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "createdAt": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+            },
+            "status": {
+              "type": "string",
+              "const": "published"
+            },
+            "downloadUrl": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^https:\\/\\/[^\\x00-\\x20\\x7F-\\x9F/?#]+([/?#][^\\x00-\\x20\\x7F-\\x9F]*)?$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "isLatest": {
+              "type": "boolean"
+            },
+            "withdrawnAt": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "version",
+            "sizeBytes",
+            "sha256",
+            "changelog",
+            "createdAt",
+            "status",
+            "downloadUrl",
+            "isLatest",
+            "withdrawnAt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+            },
+            "sizeBytes": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "changelog": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "createdAt": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+            },
+            "status": {
+              "type": "string",
+              "const": "withdrawn"
+            },
+            "downloadUrl": {
+              "type": "null"
+            },
+            "isLatest": {
+              "type": "boolean",
+              "const": false
+            },
+            "withdrawnAt": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+            }
+          },
+          "required": [
+            "version",
+            "sizeBytes",
+            "sha256",
+            "changelog",
+            "createdAt",
+            "status",
+            "downloadUrl",
+            "isLatest",
+            "withdrawnAt"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "UploadTicket": {
+      "type": "object",
+      "properties": {
+        "uploadUrl": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https:\\/\\/[^\\x00-\\x20\\x7F-\\x9F/?#]+([/?#][^\\x00-\\x20\\x7F-\\x9F]*)?$"
+        },
+        "method": {
+          "type": "string",
+          "const": "PUT"
+        },
+        "headers": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        },
+        "expiresAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+        },
+        "maxBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "uploadUrl",
+        "method",
+        "headers",
+        "expiresAt",
+        "maxBytes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

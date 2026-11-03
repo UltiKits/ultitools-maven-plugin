@@ -193,7 +193,7 @@ public final class StubServer implements AutoCloseable {
     /** Root of the copied contract export in the test resources. */
     public static File contractRoot() {
         try {
-            return new File(StubServer.class.getResource("/ulticloud/developer-client/1.0.0/MANIFEST.json").toURI())
+            return new File(StubServer.class.getResource("/ulticloud/developer-client/1.1.0/MANIFEST.json").toURI())
                     .getParentFile();
         } catch (URISyntaxException e) {
             throw new IllegalStateException(e);

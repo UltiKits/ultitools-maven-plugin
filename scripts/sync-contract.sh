@@ -3,7 +3,7 @@
 # DEVELOPER-CLIENT.md, MANIFEST.json) into the test resources and verify every
 # file against the SHA-256 recorded in MANIFEST.json.
 #
-# Usage: scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.0.0
+# Usage: scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.1.0
 #
 # The copied directory is frozen upstream; never edit it by hand. A newer
 # contract version is copied into its own directory.
