@@ -26,6 +26,7 @@ import org.apache.maven.plugin.logging.Log;
 import javax.net.ssl.SSLContext;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -41,7 +42,7 @@ import java.util.Map;
  * Publishes a module version to UltiCloud with a developer key, independent of the
  * Maven API so that it can be unit tested against a local stub server.
  *
- * <p>Flow (contract {@code rest-v1/developer-client/1.0.0}): declare the version with the
+ * <p>Flow (contract {@code rest-v1/developer-client/1.1.0}): declare the version with the
  * SHA-256 and size of the JAR, PUT the same bytes to the upload ticket URL; a successful
  * upload publishes the version. A version that already exists and is still waiting for
  * its upload is resumed with a fresh ticket. A missing module is created from the
@@ -85,6 +86,7 @@ public class UltiCloudClient {
         m.put("upload_invalid_file_type", "服务器只接受 application/java-archive 类型的上传");
         m.put("upload_checksum_mismatch", "服务器算出的 SHA-256 与声明的不一致：JAR 可能在上传途中被改动，请重新构建后再 deploy");
         m.put("upload_api_level_missing", "plugin.yml 需要整数 api-version（例如 api-version: 13）：补上后重新构建");
+        m.put("upload_jar_invalid", "上传的文件不是有效的 ZIP/JAR：检查打包产物");
         m.put("icon_url_invalid", "图标必须是可访问的 https 地址");
         m.put("validation_failed", "请求未通过服务器校验");
         m.put("rate_limited", "请求过于频繁");
@@ -460,8 +462,17 @@ public class UltiCloudClient {
                     JSONObject details = error.getJSONObject("details");
                     if (details != null) {
                         e.fields = details.getJSONObject("fields");
-                        if (e.retryAfter == null && details.get("retryAfterSeconds") != null) {
-                            e.retryAfter = String.valueOf(details.get("retryAfterSeconds"));
+                        Object retry = details.get("retryAfterSeconds");
+                        if (retry instanceof Number) {
+                            // A bounded JSON integer is authoritative; otherwise keep the header fallback.
+                            try {
+                                int seconds = new BigDecimal(retry.toString()).intValueExact();
+                                if (seconds >= 1 && seconds <= 86400) {
+                                    e.retryAfter = String.valueOf(seconds);
+                                }
+                            } catch (ArithmeticException ignored) {
+                                // Fractional or overflowing values are not contract-valid delays.
+                            }
                         }
                     }
                 }

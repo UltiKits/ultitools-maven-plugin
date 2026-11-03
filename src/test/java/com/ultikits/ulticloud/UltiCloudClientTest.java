@@ -84,7 +84,9 @@ public class UltiCloudClientTest extends TestCase {
         assertEquals(fixture, code, e.getCode());
         assertNotNull(fixture, UltiCloudClient.messageFor(code));
         assertFalse(fixture + ": " + e.getMessage(), e.getMessage().startsWith("UltiCloud 返回 HTTP"));
-        assertTrue(fixture + ": " + e.getMessage(), e.getMessage().contains(REQUEST_ID));
+        String requestId = JSONUtil.parseObj(StubServer.fixture(fixture)).getJSONObject("error").getStr("requestId");
+        assertEquals(fixture, requestId, e.getRequestId());
+        assertTrue(fixture + ": " + e.getMessage(), e.getMessage().contains(requestId));
     }
 
     private static int status(String fileName) {
@@ -167,12 +169,73 @@ public class UltiCloudClientTest extends TestCase {
         }
     }
 
-    public void testRateLimitReportsRetryAfterWithoutRetrying() throws Exception {
-        stub.on("POST", VERSIONS, 429, StubServer.fixture("modulesCreate/error/valid/429-rate-limited.json"),
-                Collections.singletonMap("Retry-After", "42"));
+    public void testInvalidJarFixtureHasAnActionablePackagingHint() throws Exception {
+        stub.on("POST", VERSIONS, 200, stub.fixtureHere("versionsCreate/response/valid/pending.json"));
+        stub.on("PUT", UPLOAD, 422, StubServer.fixture("uploadPut/error/valid/422-jar-invalid.json"));
         UltiCloudException e = publishFails();
-        assertTrue(e.getMessage(), e.getMessage().contains("42 秒后"));
+        assertEquals("upload_jar_invalid", e.getCode());
+        String requestId = JSONUtil.parseObj(StubServer.fixture("uploadPut/error/valid/422-jar-invalid.json"))
+                .getJSONObject("error").getStr("requestId");
+        assertEquals(422, e.getStatus());
+        assertEquals("上传的文件不是有效的 ZIP/JAR：检查打包产物（requestId: " + requestId + "）", e.getMessage());
+        assertEquals(2, stub.requests().size());
+        assertTrue(stub.unexpected().isEmpty());
+    }
+
+    private void assertRetryDelay(String body, String header, String seconds) throws Exception {
+        int before = stub.requests().size();
+        stub.on("POST", VERSIONS, 429, body, header == null ? Collections.<String, String>emptyMap()
+                : Collections.singletonMap("Retry-After", header));
+        UltiCloudException e = publishFails();
+        assertTrue(e.getMessage(), e.getMessage().contains("请在 " + seconds + " 秒后重试"));
+        assertEquals(before + 1, stub.requests().size());
+        assertTrue(stub.unexpected().isEmpty());
+    }
+
+    public void testRateLimitPrefersJsonOverConflictingHeaderWithoutRetrying() throws Exception {
+        assertRetryDelay(StubServer.fixture("modulesCreate/error/valid/429-rate-limited.json"), "42", "60");
+    }
+
+    public void testRateLimitFixtureReportsJsonWithoutHeader() throws Exception {
+        assertRetryDelay(StubServer.fixture("modulesCreate/error/valid/429-rate-limited.json"), null, "60");
+    }
+
+    public void testRateLimitAcceptsBothContractBoundsOverHeader() throws Exception {
+        assertRetryDelay(StubServer.fixture("modulesCreate/error/valid/429-retry-1.json"), "42", "1");
+        assertRetryDelay(StubServer.fixture("modulesCreate/error/valid/429-retry-86400.json"), "42", "86400");
+    }
+
+    public void testRateLimitFallsBackToHeaderForAbsentOrInvalidJsonDelay() throws Exception {
+        String fixture = StubServer.fixture("modulesCreate/error/valid/429-rate-limited.json");
+        for (String invalid : new String[]{"0", "-1", "86401", "1.5", "\"60\"", "null", "true", "{}", "[]"}) {
+            assertRetryDelay(fixture.replace("\"retryAfterSeconds\": 60", "\"retryAfterSeconds\": " + invalid), "42", "42");
+        }
+        assertRetryDelay(fixture.replace("\"retryAfterSeconds\": 60", "\"other\": 60"), "42", "42");
+        assertRetryDelay("<html>bad gateway</html>", "42", "42");
+    }
+
+    public void testRateLimitWithoutEitherDelayAsksToRetryLater() throws Exception {
+        stub.on("POST", VERSIONS, 429, "{\"error\":{\"code\":\"rate_limited\"}}");
+        assertTrue(publishFails().getMessage().contains("稍后重试"));
         assertEquals(1, stub.requests().size());
+    }
+
+    public void testCreationChangelogLimitRemains5000() throws Exception {
+        assertEquals(5000, UltiCloudClient.MAX_CHANGELOG_CHARS);
+        char[] chars = new char[5000];
+        Arrays.fill(chars, 'a');
+        String changelog = new String(chars);
+        stub.on("POST", VERSIONS, 200, stub.fixtureHere("versionsCreate/response/valid/pending.json"));
+        stub.on("PUT", UPLOAD, 200, stub.fixtureHere("uploadPut/response/valid/published.json"));
+        client().publish(MODULE, "1.2.3", changelog, jar, noProfile);
+        assertEquals(changelog, JSONUtil.parseObj(stub.requests().get(0).bodyText()).getStr("changelog"));
+        try {
+            client().publish(MODULE, "1.2.3", changelog + "a", jar, noProfile);
+            fail("5001 characters should be rejected before any request");
+        } catch (UltiCloudException expected) {
+            assertTrue(expected.getMessage().contains("5000"));
+        }
+        assertEquals(2, stub.requests().size());
     }
 
     public void testUnknownCodeFallsBackToStatus() throws Exception {
