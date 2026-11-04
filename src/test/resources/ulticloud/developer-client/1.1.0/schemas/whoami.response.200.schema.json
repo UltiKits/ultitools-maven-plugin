@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ultikits.com/rest/v1/developer-client/1.1.0/whoami.response.200.schema.json",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "developerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\x00-\\x1F\\x7F-\\x9F\\u00AD\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u2064\\u2066-\\u206F\\uFEFF]+$"
+        },
+        "credential": {
+          "$ref": "#/$defs/DeveloperCredentialInfo"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "developerName"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "data"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "DeveloperCredentialInfo": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "developer",
+            "cli"
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/DeveloperKeyScope"
+        }
+      },
+      "required": [
+        "kind",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "DeveloperKeyScope": {
+      "type": "string",
+      "enum": [
+        "upload",
+        "manage"
+      ]
+    }
+  }
+}
