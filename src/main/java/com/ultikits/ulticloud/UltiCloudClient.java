@@ -383,6 +383,80 @@ public class UltiCloudClient {
         throw failure(ApiError.of(r), moduleRef, version);
     }
 
+    // ---------------------------------------------------------------- destructive goals
+
+    /** One plain version, {@code X.Y.Z} with an optional pre-release suffix; the API's own pattern. */
+    private static final java.util.regex.Pattern VERSION = java.util.regex.Pattern.compile(
+            "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$");
+
+    /**
+     * Tells whether a string names exactly one version (no range, no keyword, no spaces).
+     *
+     * @param version the candidate
+     * @return true for {@code X.Y.Z} with an optional pre-release suffix, at most 32 characters
+     */
+    public static boolean isVersion(String version) {
+        return version != null && version.length() <= 32 && VERSION.matcher(version).matches();
+    }
+
+    /**
+     * Withdraws one published version. Withdrawal cannot be undone.
+     *
+     * @param moduleRef the module identifier
+     * @param version   the version
+     * @return the server's {@code withdrawnAt} timestamp
+     * @throws UltiCloudException when the request fails or the response does not report {@code withdrawn}
+     */
+    public String withdraw(String moduleRef, String version) throws UltiCloudException {
+        log.info("UltiCloud " + api + "：撤回 " + moduleRef + "@" + version + "，密钥 " + credential.masked());
+        Response r = send("POST", api + versionsPath(moduleRef) + "/" + segment(version) + "/withdraw", null, true);
+        if (r.status != 200) {
+            ApiError err = ApiError.of(r);
+            if (r.status == 404) {
+                throw new UltiCloudException(withCenter(moduleRef + "@" + version
+                        + " 不存在或不属于该密钥的开发者：请检查 identifyString 与 -Dultitools.version")
+                        + requestIdSuffix(err.requestId), r.status, err.code, err.requestId);
+            }
+            throw failure(err, moduleRef, version);
+        }
+        JSONObject v = object(object(parse(r), "data"), "version");
+        String withdrawnAt = string(v, "withdrawnAt");
+        if (!"withdrawn".equals(string(v, "status")) || withdrawnAt == null) {
+            throw new UltiCloudException("服务器的响应没有报告 " + moduleRef + "@" + version
+                    + " 的状态为 withdrawn：请在开发者中心核对该版本" + (developerCenter() == null ? "" : "（" + developerCenter() + "）"));
+        }
+        log.info("已撤回 " + moduleRef + "@" + version + "（withdrawnAt " + withdrawnAt + "）；撤回不可恢复");
+        return withdrawnAt;
+    }
+
+    /**
+     * Deletes a module recoverably: it can be restored until the returned deadline.
+     *
+     * @param moduleRef the module identifier
+     * @return the server's {@code restorableUntil} timestamp
+     * @throws UltiCloudException when the request fails or the response has no restore deadline
+     */
+    public String deleteModule(String moduleRef) throws UltiCloudException {
+        log.info("UltiCloud " + api + "：删除模块 " + moduleRef + "，密钥 " + credential.masked());
+        Response r = send("DELETE", api + "/v1/developer/modules/" + segment(moduleRef), null, true);
+        if (r.status != 200) {
+            ApiError err = ApiError.of(r);
+            if (r.status == 404) {
+                throw new UltiCloudException(withCenter("模块 " + moduleRef + " 不存在或已删除（或不属于该密钥的开发者）：请检查 identifyString")
+                        + requestIdSuffix(err.requestId), r.status, err.code, err.requestId);
+            }
+            throw failure(err, moduleRef, null);
+        }
+        String restorableUntil = string(object(parse(r), "data"), "restorableUntil");
+        if (restorableUntil == null) {
+            throw new UltiCloudException("服务器的响应缺少恢复截止时间 restorableUntil：请在开发者中心核对模块 " + moduleRef
+                    + (developerCenter() == null ? "" : "（" + developerCenter() + "）"));
+        }
+        log.info("已删除模块 " + moduleRef + "，可在 " + restorableUntil + " 之前恢复：运行 ultikits modules restore " + moduleRef
+                + "，或在开发者中心恢复" + (developerCenter() == null ? "" : "（" + developerCenter() + "）"));
+        return restorableUntil;
+    }
+
     // ---------------------------------------------------------------- errors
 
     /**
