@@ -3,6 +3,7 @@
 Maven plugin for UltiTools module developers.
 
 - `ultitools:deploy` publishes the built module JAR to **UltiCloud** with a developer key.
+- `ultitools:withdraw` and `ultitools:delete-module` withdraw a version or delete a module; explicit goals only, never part of a build lifecycle.
 - `ultitools:install` copies the built JAR into a local test server's plugin folder (unchanged).
 
 ## Publishing with `ultitools:deploy`
@@ -79,6 +80,34 @@ Every failure ends the build with a specific message (invalid or revoked key, no
 
 Store an **upload**-scoped developer key as the repository secret `ULTIKITS_TOKEN`, and create the module in the developer center first.
 
+## Withdraw a version / delete a module
+
+Two destructive goals exist for module developers. Neither is bound to a lifecycle phase, so `mvn package`, `mvn deploy` or any other phase never runs them: they run only when named on the command line, and only with an exact confirmation string.
+
+```bash
+# Withdraw one published version. Cannot be undone.
+mvn ultitools:withdraw -Dultitools.withdrawVersion=1.2.3 -Dultitools.confirm=my-module@1.2.3
+
+# Delete the module. Recoverable for 30 days.
+mvn ultitools:delete-module -Dultitools.confirm=my-module
+```
+
+- **Manage-scoped key required.** Both goals need a developer key with the **manage** scope (from `ULTIKITS_TOKEN` or `accessKeyFile`, as for `deploy`). Use an **upload** key in CI: with it the server refuses both operations (`key_scope_insufficient`), so a CI job cannot withdraw or delete anything.
+- **Confirmation.** `-Dultitools.confirm` must equal `<identifyString>@<version>` for `withdraw` and `<identifyString>` for `delete-module`, character for character (case-sensitive, no surrounding spaces). A missing or different string fails the build before any request is sent. A confirmation written for one target never matches another: a module confirmation does not confirm a version withdrawal, and the reverse.
+- **Version.** `withdraw` takes the version only from `-Dultitools.withdrawVersion` (never from `${project.version}`), and only a single `X.Y.Z` version with an optional pre-release suffix; ranges and keywords are refused. The parameter has its own name on purpose: deploy's `<version>` in the plugin's shared `<configuration>` and an `ultitools.version` property in the POM (often the framework version) are both ignored by `withdraw`, so neither can stand in for the version you typed.
+- **Withdrawing is permanent.** A withdrawn version is marked withdrawn, can no longer be downloaded and cannot be restored. Only published versions can be withdrawn (`version_not_published` otherwise).
+- **Deleting is recoverable for 30 days.** The build log prints the restore deadline (`restorableUntil`). Restore with `ultikits modules restore <identifyString>` or in the developer center; this plugin has no restore goal. Until the deadline the identifier and name stay reserved.
+- Rate limits answer with the wait time (`Retry-After`); the plugin does not retry. The module owner is emailed about every withdrawal and deletion.
+- Do not add these goals to an `<executions>` block of your `pom.xml`: that would bind them to a phase again.
+
+| Parameter | Property | Default | Meaning |
+|---|---|---|---|
+| `identifyString` | | (required) | Module identifier on UltiCloud |
+| `withdrawVersion` (`withdraw` only) | `ultitools.withdrawVersion` | none (required) | The version to withdraw |
+| `confirm` | `ultitools.confirm` | none (required) | Exact confirmation string, see above |
+| `apiUrl` | `ultitools.apiUrl` | `https://api.ultikits.com` | As for `deploy` |
+| `accessKeyFile` | | none | As for `deploy` |
+
 ## Upgrading from 1.x
 
 - The old access tokens no longer work. Create a developer key in the developer center and put it in `ULTIKITS_TOKEN` (or the first line of `accessKeyFile`).
@@ -93,4 +122,4 @@ Store an **upload**-scoped developer key as the repository secret `ULTIKITS_TOKE
 mvn -B -ntp -Dgpg.skip=true verify
 ```
 
-HTTP goes through Apache HttpClient 5 (`HttpURLConnection` cannot send PATCH). The tests replay the UltiCloud developer-client contract fixtures copied into `src/test/resources/ulticloud/developer-client/1.0.0/` against a local stub server; no network access is needed. Refresh the copy with `scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.0.0`, which verifies every file against `MANIFEST.json`.
+HTTP goes through Apache HttpClient 5 (`HttpURLConnection` cannot send PATCH). The tests replay the UltiCloud developer-client contract fixtures copied into `src/test/resources/ulticloud/developer-client/1.1.0/` against a local stub server; no network access is needed. Refresh the copy with `scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.1.0`, which verifies every file against `MANIFEST.json`.
