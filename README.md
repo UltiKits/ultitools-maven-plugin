@@ -86,7 +86,7 @@ Two destructive goals exist for module developers. Neither is bound to a lifecyc
 
 ```bash
 # Withdraw one published version. Cannot be undone.
-mvn ultitools:withdraw -Dultitools.version=1.2.3 -Dultitools.confirm=my-module@1.2.3
+mvn ultitools:withdraw -Dultitools.withdrawVersion=1.2.3 -Dultitools.confirm=my-module@1.2.3
 
 # Delete the module. Recoverable for 30 days.
 mvn ultitools:delete-module -Dultitools.confirm=my-module
@@ -94,7 +94,7 @@ mvn ultitools:delete-module -Dultitools.confirm=my-module
 
 - **Manage-scoped key required.** Both goals need a developer key with the **manage** scope (from `ULTIKITS_TOKEN` or `accessKeyFile`, as for `deploy`). Use an **upload** key in CI: with it the server refuses both operations (`key_scope_insufficient`), so a CI job cannot withdraw or delete anything.
 - **Confirmation.** `-Dultitools.confirm` must equal `<identifyString>@<version>` for `withdraw` and `<identifyString>` for `delete-module`, character for character (case-sensitive, no surrounding spaces). A missing or different string fails the build before any request is sent. A confirmation written for one target never matches another: a module confirmation does not confirm a version withdrawal, and the reverse.
-- **Version.** `withdraw` takes the version only from `-Dultitools.version` (never from `${project.version}`), and only a single `X.Y.Z` version with an optional pre-release suffix; ranges and keywords are refused.
+- **Version.** `withdraw` takes the version only from `-Dultitools.withdrawVersion` (never from `${project.version}`), and only a single `X.Y.Z` version with an optional pre-release suffix; ranges and keywords are refused. The parameter has its own name on purpose: deploy's `<version>` in the plugin's shared `<configuration>` and an `ultitools.version` property in the POM (often the framework version) are both ignored by `withdraw`, so neither can stand in for the version you typed.
 - **Withdrawing is permanent.** A withdrawn version is marked withdrawn, can no longer be downloaded and cannot be restored. Only published versions can be withdrawn (`version_not_published` otherwise).
 - **Deleting is recoverable for 30 days.** The build log prints the restore deadline (`restorableUntil`). Restore with `ultikits modules restore <identifyString>` or in the developer center; this plugin has no restore goal. Until the deadline the identifier and name stay reserved.
 - Rate limits answer with the wait time (`Retry-After`); the plugin does not retry. The module owner is emailed about every withdrawal and deletion.
@@ -103,7 +103,7 @@ mvn ultitools:delete-module -Dultitools.confirm=my-module
 | Parameter | Property | Default | Meaning |
 |---|---|---|---|
 | `identifyString` | | (required) | Module identifier on UltiCloud |
-| `version` (`withdraw` only) | `ultitools.version` | none (required) | The version to withdraw |
+| `withdrawVersion` (`withdraw` only) | `ultitools.withdrawVersion` | none (required) | The version to withdraw |
 | `confirm` | `ultitools.confirm` | none (required) | Exact confirmation string, see above |
 | `apiUrl` | `ultitools.apiUrl` | `https://api.ultikits.com` | As for `deploy` |
 | `accessKeyFile` | | none | As for `deploy` |

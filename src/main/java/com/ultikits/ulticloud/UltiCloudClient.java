@@ -414,7 +414,7 @@ public class UltiCloudClient {
             ApiError err = ApiError.of(r);
             if (r.status == 404) {
                 throw new UltiCloudException(withCenter(moduleRef + "@" + version
-                        + " 不存在或不属于该密钥的开发者：请检查 identifyString 与 -Dultitools.version")
+                        + " 不存在或不属于该密钥的开发者：请检查 identifyString 与 -Dultitools.withdrawVersion")
                         + requestIdSuffix(err.requestId), r.status, err.code, err.requestId);
             }
             throw failure(err, moduleRef, version);

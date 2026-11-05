@@ -66,7 +66,7 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
     private UltiToolsWithdrawMojo withdraw(String confirm) throws Exception {
         UltiToolsWithdrawMojo mojo = new UltiToolsWithdrawMojo();
         common(mojo, confirm);
-        UltiToolsDeployMojoTest.set(mojo, "version", "1.2.3");
+        UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", "1.2.3");
         return mojo;
     }
 
@@ -151,16 +151,16 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
 
     public void testWithdrawRequiresAnExplicitVersion() throws Exception {
         UltiToolsWithdrawMojo mojo = withdraw(MODULE + "@");
-        UltiToolsDeployMojoTest.set(mojo, "version", null);
+        UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", null);
         String msg = failMessage(mojo);
-        assertTrue(msg, msg.contains("ultitools.version"));
+        assertTrue(msg, msg.contains("ultitools.withdrawVersion"));
         assertNoRequest();
     }
 
     public void testWithdrawRefusesAVersionThatIsNotASingleVersion() throws Exception {
         for (String v : new String[]{"LATEST", "1.2", "1.2.3/../4", "[1.0,2.0)", "1.2.3 "}) {
             UltiToolsWithdrawMojo mojo = withdraw(MODULE + "@" + v);
-            UltiToolsDeployMojoTest.set(mojo, "version", v);
+            UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", v);
             failMessage(mojo);
         }
         assertNoRequest();

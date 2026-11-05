@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.ultikits.it</groupId>
+    <artifactId>withdraw-project-property-not-used</artifactId>
+    <version>9.9.9</version>
+    <packaging>pom</packaging>
+    <properties>
+        <!-- Module POMs commonly name the framework version this way. -->
+        <ultitools.version>6.3.0</ultitools.version>
+    </properties>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
+                <configuration>
+                    <identifyString>uc-it</identifyString>
+                    <accessKeyFile>access.key</accessKeyFile>
+                    <!-- Nothing listens here: a goal that passes its checks fails on connect. -->
+                    <apiUrl>http://127.0.0.1:9</apiUrl>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
