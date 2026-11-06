@@ -4,7 +4,7 @@
     <groupId>com.ultikits</groupId>
     <artifactId>ultitools-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>2.0.0</version>
     <name>UltiTools Deploy Tool</name>
     <description>This project help you develop and test your UltiTools plugins easily!</description>
 
@@ -173,8 +173,11 @@
                 <extensions>true</extensions>
                 <configuration>
                     <publishingServerId>ultikits-sonatype</publishingServerId>
-                    <autoPublish>true</autoPublish>
-                    <waitUntil>published</waitUntil>
+                    <!-- Stop at a validated, unpublished deployment: the JAR from that same build is
+                         smoke-tested first and only then published in the Portal, so the published bytes
+                         are the tested bytes. Central cannot delete or overwrite a published version. -->
+                    <autoPublish>false</autoPublish>
+                    <waitUntil>validated</waitUntil>
                 </configuration>
             </plugin>
         </plugins>
