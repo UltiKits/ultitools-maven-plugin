@@ -2,6 +2,8 @@
 
 Maven plugin for UltiTools module developers.
 
+Version 2.0.0 talks only to the new UltiCloud backend (`/v1` API at `https://api.ultikits.com`). It does not work with the retired panel backend that 1.0.0 used, and 1.0.0 does not work with UltiCloud; see [Upgrading from 1.x](#upgrading-from-1x).
+
 - `ultitools:deploy` publishes the built module JAR to **UltiCloud** with a developer key.
 - `ultitools:withdraw` and `ultitools:delete-module` withdraw a version or delete a module; explicit goals only, never part of a build lifecycle.
 - `ultitools:install` copies the built JAR into a local test server's plugin folder (unchanged).
@@ -14,7 +16,7 @@ Maven plugin for UltiTools module developers.
     <plugin>
       <groupId>com.ultikits</groupId>
       <artifactId>ultitools-maven-plugin</artifactId>
-      <version><!-- plugin version --></version>
+      <version>2.0.0</version>
       <configuration>
         <!-- Required: the module identifier on UltiCloud -->
         <identifyString>my-module</identifyString>
@@ -110,6 +112,7 @@ mvn ultitools:delete-module -Dultitools.confirm=my-module
 
 ## Upgrading from 1.x
 
+- Set the plugin `<version>` to `2.0.0`. This is a breaking release: 2.0.0 only talks to UltiCloud.
 - The old access tokens no longer work. Create a developer key in the developer center and put it in `ULTIKITS_TOKEN` (or the first line of `accessKeyFile`).
 - `name` and `shortDescription` are now optional. Creating a module and synchronising its name and short description need a **manage**-scoped developer key.
 - When `name` or `shortDescription` is configured, every deploy sets the values on UltiCloud to the ones in `pom.xml`, overwriting edits made in the web developer center (as 1.x did). Leave both out if you do not want this.
@@ -121,5 +124,7 @@ mvn ultitools:delete-module -Dultitools.confirm=my-module
 ```bash
 mvn -B -ntp -Dgpg.skip=true verify
 ```
+
+The `master` branch carries the next version as `-SNAPSHOT` (currently `2.0.0-SNAPSHOT`); the release step sets the final version. Releases are published to Maven Central through the Sonatype Central Portal (`central-publishing-maven-plugin`, server id `ultikits-sonatype`). GPG signing runs only in the `release` profile, so `mvn -P release deploy` needs the signing key and Central Portal credentials; ordinary builds need neither.
 
 HTTP goes through Apache HttpClient 5 (`HttpURLConnection` cannot send PATCH). The tests replay the UltiCloud developer-client contract fixtures copied into `src/test/resources/ulticloud/developer-client/1.1.0/` against a local stub server; no network access is needed. Refresh the copy with `scripts/sync-contract.sh <ulticloud>/packages/contracts/generated/rest-v1/developer-client/1.1.0`, which verifies every file against `MANIFEST.json`.
