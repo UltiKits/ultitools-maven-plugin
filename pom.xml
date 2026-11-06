@@ -13,6 +13,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <!-- Reproducible builds: every archive entry and pom.properties carry this fixed time instead of
+             the build time, so rebuilding a commit with the same JDK gives byte-identical JARs and the
+             JAR published from a release build can be compared with the accepted one by SHA-256. Set it
+             to the release commit's date (UTC) whenever the release commit changes the version. -->
+        <project.build.outputTimestamp>2026-11-06T14:43:06Z</project.build.outputTimestamp>
     </properties>
     <licenses>
         <license>
@@ -102,6 +107,13 @@
 
     <build>
         <plugins>
+            <plugin>
+                <!-- Pinned: Maven 3.8's default maven-jar-plugin (2.4) ignores
+                     project.build.outputTimestamp; 3.2.0 and later honour it. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-plugin</artifactId>
