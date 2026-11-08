@@ -29,6 +29,22 @@ public class ContractSyncTest extends TestCase {
         }
     }
 
+    public void testNoFileOutsideTheManifest() throws Exception {
+        // The copied directory holds exactly the manifest's files plus MANIFEST.json itself (#5).
+        java.util.Set<String> expected = new java.util.TreeSet<String>(files().keySet());
+        expected.add("MANIFEST.json");
+        java.util.Set<String> onDisk = new java.util.TreeSet<String>();
+        final java.nio.file.Path root = StubServer.contractRoot().toPath();
+        java.util.Iterator<java.nio.file.Path> it = Files.walk(root).iterator();
+        while (it.hasNext()) {
+            java.nio.file.Path f = it.next();
+            if (Files.isRegularFile(f)) {
+                onDisk.add(root.relativize(f).toString().replace(File.separatorChar, '/'));
+            }
+        }
+        assertEquals(expected, onDisk);
+    }
+
     public void testControlAOneByteChangeIsDetected() throws Exception {
         JSONObject files = files();
         String path = "DEVELOPER-CLIENT.md";
