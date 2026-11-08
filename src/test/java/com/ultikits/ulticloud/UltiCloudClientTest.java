@@ -214,6 +214,20 @@ public class UltiCloudClientTest extends TestCase {
         assertRetryDelay("<html>bad gateway</html>", "42", "42");
     }
 
+    public void testRateLimitIgnoresAnInvalidRetryAfterHeader() throws Exception {
+        // An HTTP-date or junk header from an edge proxy is not a number of seconds (#5).
+        for (String header : new String[]{"Wed, 21 Oct 2026 07:28:00 GMT", "0", "86401", "-5", "1.5", "soon", "4e1"}) {
+            int before = stub.requests().size();
+            stub.on("POST", VERSIONS, 429, "{\"error\":{\"code\":\"rate_limited\"}}",
+                    Collections.singletonMap("Retry-After", header));
+            String msg = publishFails().getMessage();
+            assertTrue(header + ": " + msg, msg.contains("请在 稍后重试"));
+            assertFalse(header + ": " + msg, msg.contains(header + " 秒后"));
+            assertEquals(before + 1, stub.requests().size());
+        }
+        assertTrue(stub.unexpected().isEmpty());
+    }
+
     public void testRateLimitWithoutEitherDelayAsksToRetryLater() throws Exception {
         stub.on("POST", VERSIONS, 429, "{\"error\":{\"code\":\"rate_limited\"}}");
         assertTrue(publishFails().getMessage().contains("稍后重试"));

@@ -4,6 +4,7 @@ import com.ultikits.ulticloud.Confirmation;
 import com.ultikits.ulticloud.DeveloperKey;
 import com.ultikits.ulticloud.UltiCloudClient;
 import com.ultikits.ulticloud.UltiCloudException;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -17,7 +18,10 @@ import org.apache.maven.plugins.annotations.Parameter;
  * {@code mvn deploy} never runs it; it runs only as {@code mvn ultitools:withdraw}. It
  * needs {@code -Dultitools.withdrawVersion=<version>} and
  * {@code -Dultitools.confirm=<identifyString>@<version>}, compared exactly before any
- * request, and a developer key with the manage scope.</p>
+ * request, and a developer key with the manage scope. Both values are read only from the
+ * session's user properties ({@code -D}); a {@code <withdrawVersion>} or {@code <confirm>}
+ * element or an {@code ultitools.withdrawVersion}/{@code ultitools.confirm} property in a POM
+ * is ignored, so a build file can never pre-confirm the withdrawal.</p>
  *
  * <p>The version parameter is deliberately not called {@code version} and not bound to
  * {@code ultitools.version}: deploy's {@code <version>} in the plugin-level configuration
@@ -32,16 +36,15 @@ public class UltiToolsWithdrawMojo extends AbstractMojo {
     /** Module identifier on UltiCloud. */
     @Parameter(name = "identifyString", required = true)
     private String identifyString;
+    /** The user property that carries the version to withdraw. */
+    static final String WITHDRAW_VERSION_PROPERTY = "ultitools.withdrawVersion";
     /**
-     * The version to withdraw; deliberately has no default (never the project version) and
-     * a name of its own, so neither deploy's {@code <version>} nor the framework-version
-     * property {@code ultitools.version} can supply it.
+     * The running session. The version to withdraw ({@code -Dultitools.withdrawVersion}) and
+     * the confirmation ({@code -Dultitools.confirm}, exactly {@code <identifyString>@<version>})
+     * are read from its user properties only; they are deliberately not plugin parameters.
      */
-    @Parameter(name = "withdrawVersion", property = "ultitools.withdrawVersion")
-    private String withdrawVersion;
-    /** Must be exactly {@code <identifyString>@<version>}. */
-    @Parameter(name = "confirm", property = Confirmation.PROPERTY)
-    private String confirm;
+    @Parameter(defaultValue = "${session}", readonly = true)
+    private MavenSession session;
     /** File whose first line is the developer key; used when ULTIKITS_TOKEN is not set. */
     @Parameter(name = "accessKeyFile")
     private String accessKeyFile;
@@ -68,7 +71,8 @@ public class UltiToolsWithdrawMojo extends AbstractMojo {
             throw new MojoExecutionException("identifyString 必填：UltiCloud 上的模块标识符");
         }
         String moduleRef = identifyString.trim();
-        String version = withdrawVersion;
+        String version = DestructiveGoals.userProperty(session, WITHDRAW_VERSION_PROPERTY);
+        String confirm = DestructiveGoals.userProperty(session, Confirmation.PROPERTY);
         if (version == null || version.isEmpty()) {
             throw new MojoExecutionException("撤回需要显式给出版本：-Dultitools.withdrawVersion=<版本>（不使用项目版本）。没有发送任何请求");
         }

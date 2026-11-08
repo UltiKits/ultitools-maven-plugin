@@ -524,10 +524,23 @@ public class UltiCloudClient {
         String retryAfter;
         JSONObject fields;
 
+        /**
+         * The {@code Retry-After} header as a delay in seconds, under the same 1..86400 bound
+         * as the JSON {@code retryAfterSeconds}; an HTTP-date or any other value is dropped so the
+         * message falls back to "later" instead of quoting it as seconds.
+         */
+        static String headerSeconds(String header) {
+            if (header == null || !header.matches("[0-9]{1,5}")) {
+                return null;
+            }
+            int seconds = Integer.parseInt(header);
+            return seconds >= 1 && seconds <= 86400 ? String.valueOf(seconds) : null;
+        }
+
         static ApiError of(Response r) {
             ApiError e = new ApiError();
             e.status = r.status;
-            e.retryAfter = r.retryAfter;
+            e.retryAfter = headerSeconds(r.retryAfter);
             try {
                 JSONObject error = JSONUtil.parseObj(r.body).getJSONObject("error");
                 if (error != null) {
