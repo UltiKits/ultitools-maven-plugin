@@ -4,6 +4,7 @@ import com.ultikits.ulticloud.Confirmation;
 import com.ultikits.ulticloud.DeveloperKey;
 import com.ultikits.ulticloud.UltiCloudClient;
 import com.ultikits.ulticloud.UltiCloudException;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -15,7 +16,10 @@ import org.apache.maven.plugins.annotations.Parameter;
  *
  * <p>The goal is deliberately not bound to any lifecycle phase; it runs only as
  * {@code mvn ultitools:delete-module}. It needs {@code -Dultitools.confirm=<identifyString>},
- * compared exactly before any request, and a developer key with the manage scope.</p>
+ * compared exactly before any request, and a developer key with the manage scope. The
+ * confirmation is read only from the session's user properties ({@code -D}); a
+ * {@code <confirm>} element or an {@code ultitools.confirm} property in a POM is ignored, so a
+ * build file can never pre-confirm the deletion.</p>
  */
 @Mojo(name = "delete-module")
 public class UltiToolsDeleteModuleMojo extends AbstractMojo {
@@ -24,9 +28,13 @@ public class UltiToolsDeleteModuleMojo extends AbstractMojo {
     /** Module identifier on UltiCloud. */
     @Parameter(name = "identifyString", required = true)
     private String identifyString;
-    /** Must be exactly {@code <identifyString>}. */
-    @Parameter(name = "confirm", property = Confirmation.PROPERTY)
-    private String confirm;
+    /**
+     * The running session. The confirmation ({@code -Dultitools.confirm}, exactly
+     * {@code <identifyString>}) is read from its user properties only; it is deliberately not a
+     * plugin parameter.
+     */
+    @Parameter(defaultValue = "${session}", readonly = true)
+    private MavenSession session;
     /** File whose first line is the developer key; used when ULTIKITS_TOKEN is not set. */
     @Parameter(name = "accessKeyFile")
     private String accessKeyFile;
@@ -53,6 +61,7 @@ public class UltiToolsDeleteModuleMojo extends AbstractMojo {
             throw new MojoExecutionException("identifyString 必填：UltiCloud 上的模块标识符");
         }
         String moduleRef = identifyString.trim();
+        String confirm = DestructiveGoals.userProperty(session, Confirmation.PROPERTY);
         try {
             Confirmation.require("删除模块 " + moduleRef + "（30 天内可恢复）", moduleRef, confirm);
         } catch (IllegalArgumentException e) {

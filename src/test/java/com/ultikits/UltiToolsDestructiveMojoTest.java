@@ -4,7 +4,11 @@ import com.ultikits.ulticloud.DeveloperKey;
 import com.ultikits.ulticloud.RecordingLog;
 import com.ultikits.ulticloud.StubServer;
 import junit.framework.TestCase;
+import org.apache.maven.execution.DefaultMavenExecutionRequest;
+import org.apache.maven.execution.DefaultMavenExecutionResult;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.plugin.MojoExecutionException;
 
 import java.io.File;
@@ -14,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +58,7 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
         UltiToolsDeployMojoTest.set(mojo, "apiUrl", stub.baseUrl());
         UltiToolsDeployMojoTest.set(mojo, "identifyString", MODULE);
         UltiToolsDeployMojoTest.set(mojo, "accessKeyFile", "access.key");
-        UltiToolsDeployMojoTest.set(mojo, "confirm", confirm);
+        userProperty(mojo, "ultitools.confirm", confirm);
         UltiToolsDeployMojoTest.set(mojo, "env", new DeveloperKey.Env() {
             @Override
             public String get(String name) {
@@ -63,10 +68,32 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
         mojo.setLog(log);
     }
 
+    /**
+     * Sets one {@code -D} user property of the mojo's session; null removes it. The goals read
+     * the confirmation and the withdraw version only from there.
+     */
+    static void userProperty(AbstractMojo mojo, String name, String value) throws Exception {
+        java.lang.reflect.Field f = mojo.getClass().getDeclaredField("session");
+        f.setAccessible(true);
+        MavenSession old = (MavenSession) f.get(mojo);
+        Properties props = new Properties();
+        if (old != null) {
+            props.putAll(old.getUserProperties());
+        }
+        if (value == null) {
+            props.remove(name);
+        } else {
+            props.setProperty(name, value);
+        }
+        DefaultMavenExecutionRequest request = new DefaultMavenExecutionRequest();
+        request.setUserProperties(props);
+        f.set(mojo, new MavenSession(null, request, new DefaultMavenExecutionResult(), Collections.<MavenProject>emptyList()));
+    }
+
     private UltiToolsWithdrawMojo withdraw(String confirm) throws Exception {
         UltiToolsWithdrawMojo mojo = new UltiToolsWithdrawMojo();
         common(mojo, confirm);
-        UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", "1.2.3");
+        userProperty(mojo, "ultitools.withdrawVersion", "1.2.3");
         return mojo;
     }
 
@@ -149,9 +176,27 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
         assertNoRequest();
     }
 
+    public void testConfirmationAndVersionAreNotPluginParameters() throws Exception {
+        // Maven injects POM configuration and project properties only into declared plugin
+        // parameters; neither goal may declare the confirmation or the withdraw version.
+        File descriptor = new File("target/classes/META-INF/maven/plugin.xml");
+        assertTrue("plugin descriptor missing: " + descriptor, descriptor.isFile());
+        String xml = new String(Files.readAllBytes(descriptor.toPath()), StandardCharsets.UTF_8);
+        for (String goal : new String[]{"withdraw", "delete-module"}) {
+            int start = xml.indexOf("<goal>" + goal + "</goal>");
+            assertTrue(goal, start >= 0);
+            int end = xml.indexOf("</mojo>", start);
+            String mojo = xml.substring(start, end);
+            assertFalse(goal + " declares confirm", mojo.contains("<name>confirm</name>"));
+            assertFalse(goal + " declares withdrawVersion", mojo.contains("<name>withdrawVersion</name>"));
+            assertFalse(goal + " binds ultitools.confirm", mojo.contains("${ultitools.confirm}"));
+            assertFalse(goal + " binds ultitools.withdrawVersion", mojo.contains("${ultitools.withdrawVersion}"));
+        }
+    }
+
     public void testWithdrawRequiresAnExplicitVersion() throws Exception {
         UltiToolsWithdrawMojo mojo = withdraw(MODULE + "@");
-        UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", null);
+        userProperty(mojo, "ultitools.withdrawVersion", null);
         String msg = failMessage(mojo);
         assertTrue(msg, msg.contains("ultitools.withdrawVersion"));
         assertNoRequest();
@@ -160,7 +205,7 @@ public class UltiToolsDestructiveMojoTest extends TestCase {
     public void testWithdrawRefusesAVersionThatIsNotASingleVersion() throws Exception {
         for (String v : new String[]{"LATEST", "1.2", "1.2.3/../4", "[1.0,2.0)", "1.2.3 "}) {
             UltiToolsWithdrawMojo mojo = withdraw(MODULE + "@" + v);
-            UltiToolsDeployMojoTest.set(mojo, "withdrawVersion", v);
+            userProperty(mojo, "ultitools.withdrawVersion", v);
             failMessage(mojo);
         }
         assertNoRequest();
